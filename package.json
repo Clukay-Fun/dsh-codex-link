@@ -1,0 +1,57 @@
+{
+  "name": "dsh-codex-quota",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness settings card that reads Codex quota through the local app-server.",
+  "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "typecheck": "node scripts/generate.mjs && node scripts/check-generated.mjs && tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "tsc -p tsconfig.build.json && node --test test/*.test.js",
+    "read": "node lib/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "codex"
+  ],
+  "license": "MIT"
+}

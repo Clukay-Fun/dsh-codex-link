@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Codex quota",
+    "description": "Shows local Codex CLI quota windows on the settings page. Stores no tokens and does not route models."
+  }
+}

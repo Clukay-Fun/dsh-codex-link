@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Codex 额度",
+    "description": "在设置页读取本机 Codex CLI 的额度窗口。不保存令牌，也不接入模型。"
+  }
+}

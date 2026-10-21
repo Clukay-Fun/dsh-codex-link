@@ -1,0 +1,7 @@
+# Host row. The same package also ships the settings-page client.
+- insert:
+    - id: codex-quota
+      name: dsh-codex-quota
+      config:
+        executable: codex
+        cacheTtlMs: 60000
