@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Codex 额度",
-    "description": "在设置页读取本机 Codex CLI 的额度窗口。不保存令牌，也不接入模型。"
+    "title": "Codex Link",
+    "description": "补上 Harness 缺的 ChatGPT 登录入口，并显示 Codex 额度。不保存令牌，也不注册模型提供方。"
   }
 }

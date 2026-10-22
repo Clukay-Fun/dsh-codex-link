@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Codex quota",
-    "description": "Shows local Codex CLI quota windows on the settings page. Stores no tokens and does not route models."
+    "title": "Codex Link",
+    "description": "Adds the ChatGPT sign-in the harness is missing and shows the Codex quota. Stores no token and registers no model provider."
   }
 }

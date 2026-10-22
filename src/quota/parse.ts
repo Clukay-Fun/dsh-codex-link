@@ -1,18 +1,5 @@
 import type { QuotaWindow } from './model.js'
 
-const SNAPSHOT_KEYS = new Set([
-  'limitId',
-  'limitName',
-  'normalModelSlug',
-  'primary',
-  'secondary',
-  'credits',
-  'individualLimit',
-  'spendControlReached',
-  'planType',
-  'rateLimitReachedType',
-])
-
 function record(value: unknown): Record<string, unknown> | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
@@ -22,55 +9,11 @@ function finite(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-/** Unix seconds and milliseconds both show up across Codex versions. */
+/** Unix seconds and milliseconds both show up across backends. */
 export function resetsAtMs(value: unknown): number | null {
   const time = finite(value)
   if (time === undefined || time <= 0) return null
   return time < 1e12 ? Math.round(time * 1000) : Math.round(time)
-}
-
-function windowFrom(value: unknown, id: string): QuotaWindow | undefined {
-  const row = record(value)
-  if (row === undefined) return undefined
-  const usedPercent = finite(row.usedPercent)
-  if (usedPercent === undefined) return undefined
-  const duration = finite(row.windowDurationMins)
-  return {
-    id,
-    usedPercent,
-    resetsAt: resetsAtMs(row.resetsAt),
-    windowDurationMins: duration === undefined ? null : duration,
-  }
-}
-
-function pushWindow(windows: QuotaWindow[], seen: Set<string>, value: unknown, id: string): void {
-  if (seen.has(id)) return
-  const window = windowFrom(value, id)
-  if (window === undefined) return
-  seen.add(id)
-  windows.push(window)
-}
-
-function windowsFromSnapshot(snapshot: Record<string, unknown>, prefix: string): QuotaWindow[] {
-  const windows: QuotaWindow[] = []
-  const seen = new Set<string>()
-  const list = snapshot.windows
-  if (Array.isArray(list)) {
-    list.forEach((item, index) => {
-      const row = record(item)
-      const id = typeof row?.id === 'string' && row.id.length > 0
-        ? `${prefix}${row.id}`
-        : `${prefix}${index}`
-      pushWindow(windows, seen, item, id)
-    })
-  }
-  pushWindow(windows, seen, snapshot.primary, `${prefix}primary`)
-  pushWindow(windows, seen, snapshot.secondary, `${prefix}secondary`)
-  for (const [key, value] of Object.entries(snapshot)) {
-    if (SNAPSHOT_KEYS.has(key) || key === 'windows') continue
-    pushWindow(windows, seen, value, `${prefix}${key}`)
-  }
-  return windows
 }
 
 /** Keep unknown plan names. A closed enum has already broken Codex itself (`prolite`). */
@@ -80,53 +23,82 @@ export function planTypeOf(value: unknown): string | null {
   return text.length > 0 ? text : null
 }
 
+/**
+ * One `*_window` object from `/wham/usage`:
+ * `{ used_percent, limit_window_seconds, reset_after_seconds, reset_at }`.
+ * `reset_at` wins; a payload carrying only `reset_after_seconds` is anchored at `now`.
+ */
+function windowFrom(value: unknown, id: string, now: number): QuotaWindow | undefined {
+  const row = record(value)
+  if (row === undefined) return undefined
+  const usedPercent = finite(row.used_percent)
+  if (usedPercent === undefined) return undefined
+  const seconds = finite(row.limit_window_seconds)
+  const after = finite(row.reset_after_seconds)
+  const resetsAt = resetsAtMs(row.reset_at) ?? (after === undefined ? null : now + Math.round(after * 1000))
+  return {
+    id,
+    usedPercent,
+    resetsAt,
+    windowDurationMins: seconds === undefined ? null : Math.round(seconds / 60),
+  }
+}
+
+/** Every `*_window` in one `rate_limit` object, in the order the backend lists them. */
+function windowsOf(limit: unknown, prefix: string, now: number): QuotaWindow[] {
+  const row = record(limit)
+  if (row === undefined) return []
+  const windows: QuotaWindow[] = []
+  for (const [key, value] of Object.entries(row)) {
+    if (!key.endsWith('_window')) continue
+    const window = windowFrom(value, `${prefix}${key.slice(0, -'_window'.length)}`, now)
+    if (window !== undefined) windows.push(window)
+  }
+  return windows
+}
+
+/** A name for one entry of `additional_rate_limits`, which has been both a list and a map. */
+function additionalName(entry: Record<string, unknown>, fallback: string): string {
+  for (const key of ['limit_name', 'metered_feature', 'name', 'id']) {
+    const value = entry[key]
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return fallback
+}
+
 export interface ParsedQuota {
   planType: string | null
+  /** True when the backend says the main limit is exhausted right now. */
+  limitReached: boolean
   windows: QuotaWindow[]
 }
 
-/** Accept the historical snapshot and the per-limit map. Unknown windows are skipped. */
-export function parseRateLimits(payload: unknown): ParsedQuota {
+/**
+ * Parse `GET /backend-api/wham/usage`.
+ *
+ * The main `rate_limit` keeps bare ids (`primary`, `secondary`); code review and any
+ * additional metered limit are prefixed, so two limits with a `primary_window` never
+ * collide. Anything that is not a window with a `used_percent` is skipped, not zeroed.
+ */
+export function parseUsage(payload: unknown, now = Date.now()): ParsedQuota {
   const body = record(payload)
-  if (body === undefined) return { planType: null, windows: [] }
-  const windows: QuotaWindow[] = []
-  const seen = new Set<string>()
-  const take = (parsed: QuotaWindow[]) => {
-    for (const window of parsed) {
-      if (seen.has(window.id)) continue
-      seen.add(window.id)
-      windows.push(window)
-    }
+  if (body === undefined) return { planType: null, limitReached: false, windows: [] }
+  const main = record(body.rate_limit)
+  const windows = windowsOf(main, '', now)
+  windows.push(...windowsOf(body.code_review_rate_limit, 'code-review:', now))
+  const additional = body.additional_rate_limits
+  const entries: Array<[string, unknown]> = Array.isArray(additional)
+    ? additional.map((entry, index) => [String(index), entry])
+    : Object.entries(record(additional) ?? {})
+  for (const [fallback, value] of entries) {
+    const entry = record(value)
+    if (entry === undefined) continue
+    const limit = entry.rate_limit ?? entry
+    windows.push(...windowsOf(limit, `${additionalName(entry, fallback)}:`, now))
   }
-  const snapshot = record(body.rateLimits)
-  let planType = planTypeOf(snapshot?.planType)
-  if (snapshot !== undefined) take(windowsFromSnapshot(snapshot, ''))
-  const byLimit = record(body.rateLimitsByLimitId)
-  if (byLimit !== undefined) {
-    for (const [limitId, value] of Object.entries(byLimit)) {
-      const nested = record(value)
-      if (nested === undefined) continue
-      planType ??= planTypeOf(nested.planType)
-      take(windowsFromSnapshot(nested, `${limitId}:`))
-    }
-  }
-  return { planType, windows }
-}
-
-export interface ParsedAccount {
-  loggedIn: boolean
-  planType: string | null
-  email: string | null
-}
-
-export function parseAccount(payload: unknown): ParsedAccount {
-  const body = record(payload)
-  const account = record(body?.account)
-  if (account === undefined) return { loggedIn: false, planType: null, email: null }
-  const email = typeof account.email === 'string' && account.email.length > 0 ? account.email : null
   return {
-    loggedIn: true,
-    planType: planTypeOf(account.planType),
-    email,
+    planType: planTypeOf(body.plan_type),
+    limitReached: main?.limit_reached === true || main?.allowed === false,
+    windows,
   }
 }

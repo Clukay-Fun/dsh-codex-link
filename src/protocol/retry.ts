@@ -1,5 +1,3 @@
-import { OVERLOADED, RpcError } from './ndjson.js'
-
 const BACKOFF_MS = [250, 500, 1000]
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
@@ -20,9 +18,10 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** Retry only the server-overloaded code. Other failures surface immediately. */
-export async function withOverloadRetry<T>(
+/** Retry only what the caller calls transient. Everything else surfaces immediately. */
+export async function withRetry<T>(
   run: () => Promise<T>,
+  retryable: (error: unknown) => boolean,
   signal?: AbortSignal,
 ): Promise<T> {
   let last: unknown
@@ -31,9 +30,8 @@ export async function withOverloadRetry<T>(
       return await run()
     } catch (error) {
       last = error
-      const overloaded = error instanceof RpcError && error.code === OVERLOADED
       const wait = BACKOFF_MS[attempt]
-      if (!overloaded || wait === undefined) throw error
+      if (!retryable(error) || wait === undefined) throw error
       await delay(wait, signal)
     }
   }

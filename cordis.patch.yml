@@ -1,7 +1,14 @@
 # Host row. The same package also ships the settings-page client.
 - insert:
-    - id: codex-quota
-      name: dsh-codex-quota
-      config:
-        executable: codex
-        cacheTtlMs: 60000
+    - id: codex-link
+      name: dsh-codex-link
+
+# Activate the Codex route on the bundled pi-ai adapter. `dsh-base` already
+# mounts `llm-pi-ai`, but with no providers, so nothing is served. A keyless
+# entry means "use the installed catalog provider's own auth", which for
+# `openai-codex` is its ChatGPT OAuth. Inference and this card's quota then
+# read the one grant, so the numbers cannot belong to another account.
+- id: llm-pi-ai
+  config:
+    providers:
+      openai-codex: {}

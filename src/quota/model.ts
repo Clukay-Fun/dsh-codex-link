@@ -11,7 +11,8 @@ export interface LoggedInCard {
   freshness: 'fresh' | 'stale'
   fetchedAt: number
   planType: string | null
-  email: string | null
+  /** The backend's own verdict that the main limit is exhausted, not inferred from 100%. */
+  limitReached: boolean
   windows: QuotaWindow[]
 }
 
@@ -35,7 +36,5 @@ export interface LoggedOutCard {
 
 export type QuotaCard = LoggedInCard | QueryFailedCard | LoggedOutCard
 
-export const ACCOUNT_READ_TIMEOUT_MS = 25_000
-export const RATE_LIMIT_TIMEOUT_MS = 15_000
-export const SESSION_TIMEOUT_MS = 60_000
+export const USAGE_TIMEOUT_MS = 15_000
 export const DEFAULT_CACHE_TTL_MS = 60_000

@@ -1,8 +1,8 @@
 {
-  "name": "dsh-codex-quota",
+  "name": "dsh-codex-link",
   "version": "0.1.0",
   "private": true,
-  "description": "DeepSeek Harness settings card that reads Codex quota through the local app-server.",
+  "description": "DeepSeek Harness plugin: the ChatGPT sign-in the harness is missing, plus a Codex quota card.",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24",
@@ -38,10 +38,10 @@
     }
   },
   "scripts": {
-    "generate": "node scripts/generate.mjs",
-    "typecheck": "node scripts/generate.mjs && node scripts/check-generated.mjs && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "contract": "node scripts/check-contract.mjs",
     "build": "tsc -p tsconfig.build.json",
-    "test": "tsc -p tsconfig.build.json && node --test test/*.test.js",
+    "test": "tsc -p tsconfig.build.json && node scripts/check-contract.mjs && node --test test/*.test.js",
     "read": "node lib/cli.js"
   },
   "devDependencies": {
