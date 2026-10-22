@@ -28,6 +28,12 @@ kind: "package-reference"
 
 需要 macOS 上的 DSH Desktop，内置 `@deepseek-ai/dsh` 版本为 `>=0.2.1-rc.2 <0.3.0`。
 
+### 从插件市场安装
+
+在 DSH 的插件市场搜索 **dsh-codex-link** 或 **ChatGPT Link**，点安装，重启 DSH Desktop。
+
+### 用命令安装
+
 请使用 DSH Desktop 自带的 `dsh` 与 `pnpm` 命令，系统 PATH 上的其他版本 pnpm 可能报 `ERR_PNPM_UNEXPECTED_STORE`：
 
 ```sh
@@ -35,22 +41,27 @@ CLI_BIN=$(ls -dt "$HOME/Library/Application Support/DSH Desktop/cli/"*/bin | hea
 export PATH="$CLI_BIN:$PATH"
 ```
 
-获取源码并构建：
+从 npm 安装到 profile（以 Desktop 默认的 `web` 为例）：
+
+```sh
+dsh plugin --profile web add dsh-codex-link
+```
+
+重启 DSH Desktop，在设置中打开 **ChatGPT Link** 完成登录。
+
+### 从源码安装
+
+需要修改插件时使用：
 
 ```sh
 git clone https://github.com/Clukay-Fun/dsh-codex-link.git
 cd dsh-codex-link
 pnpm install
 pnpm run build
-```
-
-安装到 profile（以 Desktop 默认的 `web` 为例），路径需为绝对路径：
-
-```sh
 dsh plugin --profile web add "$(pwd)"
 ```
 
-重启 DSH Desktop，在设置中打开 **ChatGPT Link** 完成登录。
+路径需为绝对路径。重启 DSH Desktop 后生效。
 
 ### 确认配置已生效
 
@@ -74,7 +85,13 @@ dsh --profile web --dump-config | grep -A 4 "openai-codex:"
 
 ### 更新
 
-插件按源码目录安装，更新时拉取并重新构建即可，无需重新添加：
+从插件市场安装的，在市场里点更新。从 npm 安装的：
+
+```sh
+dsh plugin --profile web update dsh-codex-link
+```
+
+从源码安装的，拉取并重新构建即可，无需重新添加：
 
 ```sh
 git pull

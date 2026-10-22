@@ -1,8 +1,17 @@
 {
   "name": "dsh-codex-link",
   "version": "0.2.0",
-  "private": true,
-  "description": "DeepSeek Harness plugin: the ChatGPT sign-in the harness is missing, plus a Codex quota card.",
+  "description": "DeepSeek Harness plugin: sign in with ChatGPT to use GPT models through DSH's bundled pi-ai Codex route, and see that account's quota.",
+  "author": "Clukay-Fun",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Clukay-Fun/dsh-codex-link.git"
+  },
+  "homepage": "https://github.com/Clukay-Fun/dsh-codex-link#readme",
+  "bugs": {
+    "url": "https://github.com/Clukay-Fun/dsh-codex-link/issues"
+  },
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24",
@@ -22,7 +31,8 @@
     "cordis.patch.yml",
     "locale/*.json",
     "assets",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {
@@ -42,7 +52,8 @@
     "contract": "node scripts/check-contract.mjs",
     "build": "tsc -p tsconfig.build.json",
     "test": "tsc -p tsconfig.build.json && node scripts/check-contract.mjs && node --test test/*.test.js",
-    "read": "node lib/cli.js"
+    "read": "node lib/cli.js",
+    "prepublishOnly": "npm test"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -51,7 +62,9 @@
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",
-    "codex"
-  ],
-  "license": "MIT"
+    "chatgpt",
+    "codex",
+    "gpt",
+    "openai-codex"
+  ]
 }
