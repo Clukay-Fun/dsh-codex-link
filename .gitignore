@@ -1,5 +1,40 @@
+# Dependencies and build output
 node_modules/
 lib/
 protocol/generated/
 .generated-app-server/
 *.tsbuildinfo
+coverage/
+
+# Credentials and local config: DSH stores sign-ins in ~/.dsh/.credentials.yaml, and a
+# copy of it or of a Codex home (auth.json) must never land in the repo.
+.env
+.env.*
+*.credentials.yaml
+.credentials.yaml*
+auth.json
+*.pem
+*.key
+
+# Backups and scratch files
+*.bak
+*.bak-*
+*.orig
+*.tmp
+tmp/
+scratch/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local agent settings
+.claude/settings.local.json

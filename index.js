@@ -21,7 +21,7 @@ function unavailable() {
 }
 
 function authFailure(code) {
-  return { status: 'failed', label: null, methods: [], notice: null, prompt: null, code }
+  return { status: 'failed', label: null, methods: [], notice: null, prompt: null, code, revoked: null }
 }
 
 /**
@@ -63,7 +63,11 @@ export function apply(ctx, config = {}) {
           return Response.json(await login.start(method), { headers: JSON_HEADERS })
         }
         if (action === 'cancel') return Response.json(await login.cancel(), { headers: JSON_HEADERS })
-        if (action === 'logout') return Response.json(await login.logout(), { headers: JSON_HEADERS })
+        if (action === 'logout') {
+          const view = await login.logout()
+          reader.forget()
+          return Response.json(view, { headers: JSON_HEADERS })
+        }
         if (action === 'answer') {
           const id = Number(body.id)
           const value = typeof body.value === 'string' ? body.value : ''

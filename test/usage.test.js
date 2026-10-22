@@ -170,3 +170,17 @@ test('a fresh cache hit makes no request', async () => {
   assert.equal(calls, 1)
   reader.dispose()
 })
+
+test('a forgotten card is read again, so the next account sees its own quota', async () => {
+  const plans = ['plus', 'pro']
+  let calls = 0
+  const reader = new QuotaReader({
+    credentials: store(piRecord()),
+    fetch: async () => Response.json({ plan_type: plans[calls++], rate_limit: { primary_window: { used_percent: 1 } } }),
+  })
+  assert.equal((await reader.read()).planType, 'plus')
+  assert.equal((await reader.read()).planType, 'plus', 'a fresh card is served from cache')
+  reader.forget()
+  assert.equal((await reader.read()).planType, 'pro')
+  reader.dispose()
+})

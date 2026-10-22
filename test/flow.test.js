@@ -5,8 +5,8 @@ import { CodexLogin } from '../lib/auth/flow.js'
 const KEY = 'llm-pi-ai/openai-codex'
 
 /** A stand-in for the seam: records what was asked and lets a test drive one attempt. */
-function harness({ configured = false, methods = ['oauth', 'api_key'], openBrowser } = {}) {
-  const state = { configured, cancelled: 0, deleted: 0, begun: [], interaction: null, opened: [] }
+function harness({ configured = false, methods = ['oauth', 'api_key'], openBrowser, revoke, deleteFails = false } = {}) {
+  const state = { configured, cancelled: 0, deleted: 0, begun: [], interaction: null, opened: [], revoked: [] }
   let settle
   const authorization = {
     describe: (key) => key === KEY
@@ -29,7 +29,14 @@ function harness({ configured = false, methods = ['oauth', 'api_key'], openBrows
       assert.equal(key, KEY)
       return { configured: state.configured }
     },
+    readRecord: async (key) => {
+      assert.equal(key, KEY)
+      return state.configured
+        ? { kind: 'grant', payload: { type: 'oauth', access: 'at', refresh: 'rt', expires: 1, accountId: 'a' } }
+        : undefined
+    },
     deleteRecord: async () => {
+      if (deleteFails) throw Object.assign(new Error('locked'), { code: 'STORE_LOCKED' })
       state.deleted += 1
       state.configured = false
     },
@@ -41,6 +48,10 @@ function harness({ configured = false, methods = ['oauth', 'api_key'], openBrows
       credentials,
       openBrowser: openBrowser ?? (async (url) => {
         state.opened.push(url)
+      }),
+      revoke: revoke ?? (async (grant) => {
+        state.revoked.push(grant)
+        return true
       }),
     }),
     finish: (status) => {
@@ -156,7 +167,7 @@ test('a flow failure is reported by its seam code, not as a signed-out state', a
 test('no registered flow is a named failure, and nothing is begun', async () => {
   const login = new CodexLogin({
     authorization: { describe: () => undefined, cancel: () => {}, begin: () => assert.fail('must not begin') },
-    credentials: { describeRecord: async () => ({ configured: false }), deleteRecord: async () => {} },
+    credentials: { describeRecord: async () => ({ configured: false }), readRecord: async () => undefined, deleteRecord: async () => {} },
     openBrowser: async () => assert.fail('must not open'),
   })
   const view = await login.start()
@@ -173,11 +184,54 @@ test('a second sign-in does not start beside the first', async () => {
   await tick()
 })
 
-test('signing out deletes pi-ai’s record and holds no token of its own', async () => {
-  const { login, state } = harness({ configured: true })
+test('signing out revokes the session first, then deletes pi-ai’s record', async () => {
+  const order = []
+  const { login, state } = harness({
+    configured: true,
+    revoke: async (grant) => {
+      order.push(state.deleted === 0 ? 'revoke-before-delete' : 'revoke-after-delete')
+      assert.deepEqual(grant, { access: 'at', refresh: 'rt' })
+      return true
+    },
+  })
+  const view = await login.logout()
+  assert.deepEqual(order, ['revoke-before-delete'])
+  assert.equal(state.deleted, 1)
+  assert.equal(view.status, 'signed-out')
+  assert.equal(view.revoked, true)
+})
+
+test('an issuer that cannot be reached still signs out here, and says so', async () => {
+  const { login, state } = harness({ configured: true, revoke: async () => false })
   const view = await login.logout()
   assert.equal(state.deleted, 1)
   assert.equal(view.status, 'signed-out')
+  assert.equal(view.revoked, false)
+})
+
+test('a record that cannot be deleted stays signed in and says the sign-out failed', async () => {
+  const { login } = harness({ configured: true, deleteFails: true })
+  const view = await login.logout()
+  assert.equal(view.status, 'signed-in')
+  assert.equal(view.code, 'logout-failed')
+  assert.equal(view.revoked, true)
+})
+
+test('signing out with nothing stored revokes nothing', async () => {
+  const { login, state } = harness({ configured: false })
+  const view = await login.logout()
+  assert.deepEqual(state.revoked, [])
+  assert.equal(view.revoked, null)
+})
+
+test('a new sign-in clears the last sign-out’s revocation note', async () => {
+  const { login, state, finish } = harness({ configured: true })
+  await login.logout()
+  await login.start()
+  assert.equal((await login.status()).revoked, null)
+  finish('cancelled')
+  await tick()
+  assert.equal(state.revoked.length, 1)
 })
 
 test('the view never carries a token', async () => {

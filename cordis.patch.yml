@@ -11,4 +11,24 @@
 - id: llm-pi-ai
   config:
     providers:
-      openai-codex: {}
+      openai-codex:
+        # Only these models, in the picker's order: GPT-6 Astra first, then newest version
+        # first, and within a version Sol, Terra, Luna. Each has one set of reasoning
+        # levels, as the GPT desktop app offers: low, medium, high, xhigh.
+        #
+        # `models` replaces the catalog's list (GPT-5.3 Codex Spark and GPT-5.5 are left
+        # out); every other field comes from the installed catalog entry of the same id.
+        # The catalog's own levels differed per model, and its "minimal" is sent as "low"
+        # anyway, so the picker showed duplicates. An id the catalog no longer ships would
+        # have no endpoint or size, so `scripts/check-contract.mjs` checks each one.
+        # `reasoning` makes low the default, which also drops the picker's separate
+        # "provider default" row.
+        reasoning: low
+        models:
+          - { id: gpt-6-astra, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-6.1-sol, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-6-sol, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-6-luna, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-5.6-sol, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-5.6-terra, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }
+          - { id: gpt-5.6-luna, reasoningEfforts: { low: low, medium: medium, high: high, xhigh: xhigh } }

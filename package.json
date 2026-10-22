@@ -1,6 +1,6 @@
 {
   "name": "dsh-codex-link",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "DeepSeek Harness plugin: the ChatGPT sign-in the harness is missing, plus a Codex quota card.",
   "type": "module",
@@ -10,18 +10,18 @@
   },
   "exports": {
     ".": "./index.js",
-    "./client": "./client.js",
+    "./client": "./client/index.js",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./assets/icon.svg"
   },
   "files": [
     "index.js",
-    "client.js",
+    "client",
     "lib",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg",
+    "assets",
     "README.md"
   ],
   "dsh": {

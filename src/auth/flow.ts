@@ -14,6 +14,7 @@
 
 import { spawn } from 'node:child_process'
 import { PI_AI_RECORD_KEY } from '../quota/grant.js'
+import { revocableOf, revokeGrant } from './revoke.js'
 
 /** The seam's interaction vocabulary, which is deliberately smaller than any one provider's. */
 export interface Notice {
@@ -55,6 +56,7 @@ export interface AuthorizationService {
 
 export interface RecordStore {
   describeRecord(key: string): Promise<{ configured: boolean }>
+  readRecord(key: string): Promise<{ kind?: string, payload?: unknown } | undefined>
   deleteRecord(key: string): Promise<unknown>
 }
 
@@ -80,6 +82,11 @@ export interface LoginView {
   prompt: Omit<OpenPrompt, 'resolve' | 'reject'> | null
   /** Set when the last attempt failed, for the client to render as copy. */
   code: string | null
+  /**
+   * After a sign-out: whether the issuer ended the session. `false` means the local grant
+   * is gone but the session may still be listed on the account until removed there.
+   */
+  revoked: boolean | null
 }
 
 export interface LoginOptions {
@@ -87,6 +94,7 @@ export interface LoginOptions {
   credentials: RecordStore
   logger?: { warn: (message: string) => void }
   openBrowser?: (url: string) => Promise<void>
+  revoke?: typeof revokeGrant
 }
 
 /**
@@ -134,6 +142,9 @@ export class CodexLogin {
   private code: string | null = null
   private disposed = false
   private opened = new Set<string>()
+  private revoked: boolean | null = null
+  /** The last sign-out could not delete the record, so the grant is still stored. */
+  private signOutFailed = false
   private readonly openBrowser: (url: string) => Promise<void>
 
   constructor(private readonly options: LoginOptions) {
@@ -192,7 +203,10 @@ export class CodexLogin {
             options: this.open.options,
           }
         : null,
-      code: status === 'failed' ? this.code : null,
+      // A sign-out that could not delete the record leaves the person signed in; the view
+      // says so instead of looking like nothing happened.
+      code: status === 'failed' || (status === 'signed-in' && this.signOutFailed) ? this.code : null,
+      revoked: status === 'signed-out' || (status === 'signed-in' && this.signOutFailed) ? this.revoked : null,
     }
   }
 
@@ -220,6 +234,8 @@ export class CodexLogin {
     this.outcome = null
     this.code = null
     this.notice = null
+    this.revoked = null
+    this.signOutFailed = false
     this.opened.clear()
     void this.run(method).finally(() => {
       this.running = false
@@ -314,21 +330,35 @@ export class CodexLogin {
   }
 
   /**
-   * Sign out by deleting pi-ai's record.
+   * Sign out: end the session at the issuer, then delete pi-ai's record.
    *
-   * The seam is explicit that this forgets the local grant without telling the issuer; there
-   * is no revocation to declare. Revoking the app's access is done on the ChatGPT side.
+   * The seam's own sign-out only forgets the local grant, so each sign-in used to leave a
+   * live session on the account. Revocation runs first because the record holds the only
+   * copy of the refresh token. It is best effort: an unreachable issuer still signs out
+   * locally, and the view says the session may remain.
    */
   async logout(): Promise<LoginView> {
     await this.cancel()
     this.outcome = null
     this.code = null
+    this.revoked = null
+    this.signOutFailed = false
+    let grant = null
+    try {
+      grant = revocableOf(await this.options.credentials.readRecord(PI_AI_RECORD_KEY))
+    } catch {
+      grant = null
+    }
+    if (grant !== null) {
+      this.revoked = await (this.options.revoke ?? revokeGrant)(grant)
+      if (!this.revoked) this.options.logger?.warn('dsh-codex-link: codex sign-out could not revoke the session')
+    }
     try {
       await this.options.credentials.deleteRecord(PI_AI_RECORD_KEY)
     } catch (error) {
       this.options.logger?.warn(`dsh-codex-link: codex sign-out ${errorCode(error)}`)
-      this.outcome = 'failed'
-      this.code = errorCode(error)
+      this.signOutFailed = true
+      this.code = 'logout-failed'
     }
     return this.status()
   }

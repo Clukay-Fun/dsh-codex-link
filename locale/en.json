@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Codex Link",
-    "description": "Adds the ChatGPT sign-in the harness is missing and shows the Codex quota. Stores no token and registers no model provider."
+    "title": "ChatGPT Link",
+    "description": "Sign in with ChatGPT and see that account's quota."
   }
 }

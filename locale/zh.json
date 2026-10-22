@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Codex Link",
-    "description": "补上 Harness 缺的 ChatGPT 登录入口，并显示 Codex 额度。不保存令牌，也不注册模型提供方。"
+    "title": "ChatGPT Link",
+    "description": "用 ChatGPT 账号登录，并显示同一账号的额度。"
   }
 }

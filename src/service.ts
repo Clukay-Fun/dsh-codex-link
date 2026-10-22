@@ -88,6 +88,14 @@ export class QuotaReader {
     return job
   }
 
+  /**
+   * Drop the cached card, after a sign-out. The cache is not keyed by account, so without
+   * this a sign-in with another account within the TTL would be shown the last one's quota.
+   */
+  forget(): void {
+    this.cache.clear()
+  }
+
   dispose(): void {
     this.disposed = true
     this.active?.abort()
