@@ -1,6 +1,6 @@
-# Dependencies and build output
+# Dependencies and build output. lib/ is committed on purpose: installing from git gets
+# no build step, and index.js imports it.
 node_modules/
-lib/
 protocol/generated/
 .generated-app-server/
 *.tsbuildinfo
